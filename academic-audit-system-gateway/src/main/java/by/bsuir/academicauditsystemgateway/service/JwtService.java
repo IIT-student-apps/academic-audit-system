@@ -1,6 +1,9 @@
 package by.bsuir.academicauditsystemgateway.service;
 
 
+import by.bsuir.academicauditsystemgateway.entity.User;
+import by.bsuir.academicauditsystemgateway.entity.UserRole;
+import by.bsuir.academicauditsystemgateway.utils.JwtClaims;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -37,8 +40,8 @@ public class JwtService {
         return extractClaim(token, claims -> claims.get(JwtClaims.USER_ID_CLAIM_NAME, Long.class));
     }
 
-    public Role extractRole(String token) {
-        return Role.valueOf(extractClaim(token, claims -> claims.get(JwtClaims.USER_ROLE_CLAIM_NAME, String.class)));
+    public UserRole extractRole(String token) {
+        return UserRole.valueOf(extractClaim(token, claims -> claims.get(JwtClaims.USER_ROLE_CLAIM_NAME, String.class)));
     }
 
     public String generateToken(UserDetails userDetails) {

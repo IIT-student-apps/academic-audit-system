@@ -1,4 +1,4 @@
-package by.bsuir.academicauditsystemgateway.util;
+package by.bsuir.academicauditsystemgateway.utils;
 
 public class JwtClaims {
     public static final String USER_ID_CLAIM_NAME = "id";

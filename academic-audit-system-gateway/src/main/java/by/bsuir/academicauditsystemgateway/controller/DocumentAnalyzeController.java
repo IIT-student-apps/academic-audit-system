@@ -14,9 +14,9 @@ public class DocumentAnalyzeController {
     private final DocumentAnalyzeRequestService requestService;
 
     @RequestMapping(method = RequestMethod.POST, path = "/upload-document")
-    public DocumentAnalyzeRequestDto createRequest(@RequestParam MultipartFile file, @RequestAttribute(required = false) Long userId) {
+    public DocumentAnalyzeRequestDto createRequest(@RequestParam MultipartFile file, @RequestAttribute Long userId) {
         System.out.println(file.getContentType());
-        return requestService.createRequest(file, 1L);
+        return requestService.createRequest(file, userId);
     }
 
 

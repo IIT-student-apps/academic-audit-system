@@ -39,8 +39,8 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      #- ./app-data/mongo-data:/data/db
-      - mongo-volume:/data/db
+      - ./app-data/mongo-data:/data/db
+      #- mongo-volume:/data/db
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest

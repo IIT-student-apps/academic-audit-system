@@ -12,8 +12,8 @@ import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
 @Configuration
 public class MongoConfig {
 
-    //@Value("${spring.data.mongodb.database}")
-    private String DATABASE_NAME = "academic_audit_system_db";
+    @Value("${spring.data.mongodb.database}")
+    private String DATABASE_NAME;
 
     @Value("${spring.data.mongodb.uri}")
     private String mongoUri;

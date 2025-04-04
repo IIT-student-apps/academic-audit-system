@@ -1,8 +1,10 @@
 package by.bsuir.academicauditsystemgateway.filter;
 
+import by.bsuir.academicauditsystemgateway.entity.UserRole;
 import by.bsuir.academicauditsystemgateway.service.JwtService;
-import by.bsuir.academicauditsystemgateway.service.impl.UserService;
-import by.bsuir.academicauditsystemgateway.util.HttpRequestUtils;
+import by.bsuir.academicauditsystemgateway.service.UserService;
+import by.bsuir.academicauditsystemgateway.utils.HttpRequestUtils;
+import by.bsuir.academicauditsystemgateway.utils.RequestAttributes;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -59,7 +61,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
                 Long userId = jwtService.extractUserId(jwt);
                 request.setAttribute(RequestAttributes.USER_ID, userId);
-                Role role = jwtService.extractRole(jwt);
+                UserRole role = jwtService.extractRole(jwt);
                 request.setAttribute(RequestAttributes.USER_ROLE, role);
             }
         }

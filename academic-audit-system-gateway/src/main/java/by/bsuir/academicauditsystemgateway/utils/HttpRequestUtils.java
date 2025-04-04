@@ -1,4 +1,4 @@
-package by.bsuir.academicauditsystemgateway.util;
+package by.bsuir.academicauditsystemgateway.utils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.util.StringUtils;
