@@ -7,12 +7,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/personal_page")
+@RequestMapping("/personal-page")
 @RequiredArgsConstructor
 public class PersonalPageController {
     private final UserService userService;
 
-    @RequestMapping(path = "/personal_data", method = RequestMethod.GET)
+    @RequestMapping(path = "/personal-data", method = RequestMethod.GET)
     public User getPersonalInfo(@RequestAttribute Long userId) {
         return userService.findById(userId);
     }

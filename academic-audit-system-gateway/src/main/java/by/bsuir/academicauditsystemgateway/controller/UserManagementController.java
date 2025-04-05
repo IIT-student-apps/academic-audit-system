@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/user_management")
+@RequestMapping("/user-management")
 @RequiredArgsConstructor
 public class UserManagementController {
     private final UserService userService;
@@ -16,7 +16,7 @@ public class UserManagementController {
         return userService.findById(userId);
     }
 
-    @RequestMapping(path = "/create_user", method = RequestMethod.POST)
+    @RequestMapping(path = "/create-user", method = RequestMethod.POST)
     public User createUser(@RequestBody User user) {
         return userService.createUser(user);
     }
