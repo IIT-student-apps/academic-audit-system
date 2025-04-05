@@ -26,7 +26,7 @@ public class UserAnalyzeRequestAuthorizationManager implements AuthorizationMana
         HttpServletRequest request = context.getRequest();
         UUID userDataId = UUID.fromString(request.getRequestURI().split("/")[RESOURCE_ID_QUERY_POSITION]);
         Long userId = (Long) context.getRequest().getAttribute(RequestAttributes.USER_ID);
-        boolean isGranted = analyzeRequestService.findById(userDataId).getUserId().equals(userId) ||
+        boolean isGranted = analyzeRequestService.getRequestDtoById(userDataId).getUserId().equals(userId) ||
                 request.getAttribute(RequestAttributes.USER_ROLE).equals(UserRole.ROLE_ADMIN);
 
         return new AuthorizationDecision(isGranted);

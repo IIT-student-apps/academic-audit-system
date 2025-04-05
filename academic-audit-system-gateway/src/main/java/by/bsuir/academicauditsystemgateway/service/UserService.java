@@ -1,5 +1,7 @@
 package by.bsuir.academicauditsystemgateway.service;
 
+import by.bsuir.academicauditsystemgateway.dto.UserDto;
+import by.bsuir.academicauditsystemgateway.dto.mapper.UserMapper;
 import by.bsuir.academicauditsystemgateway.entity.User;
 import by.bsuir.academicauditsystemgateway.exception.UserNotFoundException;
 import by.bsuir.academicauditsystemgateway.repository.UserRepository;
@@ -19,6 +21,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserMapper userMapper;
 
     public User createUser(User user) {
         try {
@@ -28,8 +31,12 @@ public class UserService {
         }
     }
 
+    public UserDto createUser(UserDto userDto) {
+        return userMapper.toDto(createUser(userMapper.fromDto(userDto)));
+    }
+
     public User findById(Long id) {
-        return userRepository.findById(id).orElseThrow(() -> new UserOperationException("User not found with id " + id));
+        return userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found with id " + id));
     }
 
     @Transactional
@@ -40,7 +47,7 @@ public class UserService {
     }
 
     public User getByLogin(String login) {
-        return userRepository.findByLogin(login).orElseThrow(() -> new UserOperationException("User not found with login " + login));
+        return userRepository.findByLogin(login).orElseThrow(() -> new UserNotFoundException("User not found with login " + login));
     }
 
     public boolean existsByLogin(String login) {
@@ -52,24 +59,30 @@ public class UserService {
         return userRepository.findAll(pageable);
     }
 
-    public User updateUser(Long id, User user) {
+    @Transactional
+    public UserDto updateUser(Long id, UserDto userDto) {
         if (!userRepository.existsById(id)) {
             throw new UserNotFoundException("User not found with id: " + id);
         }
 
+        User user = userMapper.fromDto(userDto);
         user.setId(id);
-        return userRepository.save(user);
+        return userMapper.toDto(userRepository.save(user));
     }
 
     public UserDetailsService userDetailsService() {
         return this::getByLogin;
     }
 
-    public User deleteUser(Long id) {
+    public UserDto deleteUser(Long id) {
         if (!userRepository.existsById(id)) {
             throw new UserNotFoundException("User not found with id: " + id);
         }
 
-        return userRepository.deleteUserById(id);
+        return userMapper.toDto(userRepository.deleteUserById(id));
+    }
+
+    public UserDto getDtoById(Long userId) {
+        return userMapper.toDto(findById(userId));
     }
 }

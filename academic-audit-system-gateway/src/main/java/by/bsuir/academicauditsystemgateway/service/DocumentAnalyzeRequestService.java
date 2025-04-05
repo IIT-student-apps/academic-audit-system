@@ -3,6 +3,8 @@ package by.bsuir.academicauditsystemgateway.service;
 import by.bsuir.academicauditsystemgateway.dto.DocumentAnalyzeRequestDto;
 import by.bsuir.academicauditsystemgateway.dto.mapper.DocumentAnalyzeRequestMapper;
 import by.bsuir.academicauditsystemgateway.entity.*;
+import by.bsuir.academicauditsystemgateway.exception.DocumentAnalyzeRequestOperationException;
+import by.bsuir.academicauditsystemgateway.exception.RequestNotFoundException;
 import by.bsuir.academicauditsystemgateway.repository.DocumentAnalyzeRequestRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -43,21 +45,31 @@ public class DocumentAnalyzeRequestService {
         return requestMapper.toDto(request);
     }
 
-    public DocumentAnalyzeRequestDto findById(UUID id) {
-        DocumentAnalyzeRequest request = requestRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Request not found with id: " + id));
-
-        return requestMapper.toDto(request);
-    }
-
-    public List<DocumentAnalyzeRequestDto> getRequestsByUserId(Long userId,  Integer page, Integer size) {
+    public List<DocumentAnalyzeRequestDto> getRequestsByUserId(Long userId, Integer page, Integer size) {
         return requestRepository.findAllByUserId(userId)
                 .stream()
                 .map(requestMapper::toDto)
                 .collect(Collectors.toList());
     }
 
+    public DocumentAnalyzeRequest getRequestById(UUID requestId) {
+        return requestRepository.findById(requestId).
+                orElseThrow(() -> new RequestNotFoundException("Request not found with id: " + requestId));
+    }
+
+    public DocumentAnalyzeRequestDto getRequestDtoById(UUID id) {
+        return requestMapper.toDto(getRequestById(id));
+    }
+
+    @Transactional
     public DocumentAnalyzeRequestDto retryDocumentProcessing(UUID requestId) {
-        return null;
+        DocumentAnalyzeRequest request = getRequestById(requestId);
+        if (request.getRequestStatus() == RequestStatus.FAILED) {
+            request.setRequestStatus(RequestStatus.IN_PROGRESS);
+            requestRepository.save(request);
+            outboxEventService.create(request);
+            return requestMapper.toDto(request);
+        }
+        throw new DocumentAnalyzeRequestOperationException("Can not retry document because it is not in the FAILED status");
     }
 }
