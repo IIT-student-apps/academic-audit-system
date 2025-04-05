@@ -3,6 +3,8 @@ package by.bsuir.academicauditsystemgateway.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.UUID;
+
 @Entity
 @Table(name = "document_analyze_request")
 @Builder
@@ -13,8 +15,9 @@ import lombok.*;
 public class DocumentAnalyzeRequest {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue
+    @Column(columnDefinition = "uuid", updatable = false, nullable = false)
+    private UUID id;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "request_status")

@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -42,7 +43,7 @@ public class DocumentAnalyzeRequestService {
         return requestMapper.toDto(request);
     }
 
-    public DocumentAnalyzeRequestDto findById(Long id) {
+    public DocumentAnalyzeRequestDto findById(UUID id) {
         DocumentAnalyzeRequest request = requestRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Request not found with id: " + id));
 
@@ -56,4 +57,7 @@ public class DocumentAnalyzeRequestService {
                 .collect(Collectors.toList());
     }
 
+    public DocumentAnalyzeRequestDto retryDocumentProcessing(UUID requestId) {
+        return null;
+    }
 }

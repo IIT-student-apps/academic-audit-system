@@ -11,7 +11,6 @@ public interface DocumentAnalyzeRequestMapper {
     DocumentAnalyzeRequestMapper INSTANCE = Mappers.getMapper(DocumentAnalyzeRequestMapper.class);
 
     @Mapping(source = "user.id", target = "userId")
-    @Mapping(source = "documentId", target = "documentId")
     DocumentAnalyzeRequestDto toDto(DocumentAnalyzeRequest entity);
 
     @Mapping(source = "userId", target = "user.id")

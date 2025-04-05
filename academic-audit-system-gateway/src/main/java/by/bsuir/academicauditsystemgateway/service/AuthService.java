@@ -3,7 +3,6 @@ package by.bsuir.academicauditsystemgateway.service;
 
 import by.bsuir.academicauditsystemgateway.dto.AuthRequestDto;
 import by.bsuir.academicauditsystemgateway.dto.AuthResponseDto;
-import by.bsuir.academicauditsystemgateway.dto.UserDto;
 import by.bsuir.academicauditsystemgateway.dto.mapper.UserMapper;
 import by.bsuir.academicauditsystemgateway.entity.User;
 import by.bsuir.academicauditsystemgateway.entity.UserRole;

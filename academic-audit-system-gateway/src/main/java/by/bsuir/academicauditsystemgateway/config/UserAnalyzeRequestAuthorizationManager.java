@@ -11,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.stereotype.Component;
 
+import java.util.UUID;
 import java.util.function.Supplier;
 
 @RequiredArgsConstructor
@@ -23,7 +24,7 @@ public class UserAnalyzeRequestAuthorizationManager implements AuthorizationMana
     @Override
     public AuthorizationDecision check(Supplier<Authentication> authentication, RequestAuthorizationContext context) {
         HttpServletRequest request = context.getRequest();
-        Long userDataId = Long.parseLong(request.getRequestURI().split("/")[RESOURCE_ID_QUERY_POSITION]);
+        UUID userDataId = UUID.fromString(request.getRequestURI().split("/")[RESOURCE_ID_QUERY_POSITION]);
         Long userId = (Long) context.getRequest().getAttribute(RequestAttributes.USER_ID);
         boolean isGranted = analyzeRequestService.findById(userDataId).getUserId().equals(userId) ||
                 request.getAttribute(RequestAttributes.USER_ROLE).equals(UserRole.ROLE_ADMIN);

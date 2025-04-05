@@ -36,6 +36,8 @@ services:
       - MONGODB_INITDB_ROOT_PASSWORD=root
     networks:
       - academic-audit-system-network
+    user:
+      root
     ports:
       - "27017:27017"
     volumes:

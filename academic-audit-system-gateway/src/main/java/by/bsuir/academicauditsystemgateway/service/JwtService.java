@@ -32,9 +32,6 @@ public class JwtService {
         return extractClaim(token, Claims::getSubject);
     }
 
-    public String extractPassword(String token) {
-        return extractClaim(token, claims -> claims.get(JwtClaims.USER_PASSWORD_CLAIM_NAME, String.class));
-    }
 
     public Long extractUserId(String token) {
         return extractClaim(token, claims -> claims.get(JwtClaims.USER_ID_CLAIM_NAME, Long.class));
@@ -48,8 +45,6 @@ public class JwtService {
         Map<String, Object> claims = new HashMap<>();
         if (userDetails instanceof User customUserDetails) {
             claims.put(JwtClaims.USER_ID_CLAIM_NAME, customUserDetails.getId());
-            // not sure, that it's secure, did it only for when user changes his password and previous token should be not actual
-            claims.put(JwtClaims.USER_PASSWORD_CLAIM_NAME, customUserDetails.getPassword());
             claims.put(JwtClaims.USER_ROLE_CLAIM_NAME, customUserDetails.getRole());
         }
         return generateToken(claims, userDetails);
@@ -57,10 +52,8 @@ public class JwtService {
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String userName = extractUserName(token);
-        final String password = extractPassword(token);
         final String userRole = extractRole(token).toString();
         return userName.equals(userDetails.getUsername()) &&
-                password.equals(userDetails.getPassword()) &&
                 userDetails.getAuthorities().stream().anyMatch(grantedAuthority -> grantedAuthority.toString().equals(userRole)) &&
                 !isTokenExpired(token);
     }
