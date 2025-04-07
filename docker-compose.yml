@@ -72,16 +72,17 @@ services:
     volumes:
       - ./app-data/postgres-data:/var/lib/postgresql/data
 
+  gateway:
+    image: kovalskiii/aas-gateway:latest
+    container_name: gateway
+    networks:
+      - academic-audit-system-network
+    ports:
+      - "8080:8080"
+
 volumes:
   mongo-volume:
 
-#  gateway:
-#    image: aas-gateway:latest
-#    container_name: gateway
-#    networks:
-#      - academic-audit-system-network
-#    ports:
-#      - "8080:8080"
 
 networks:
   academic-audit-system-network:
