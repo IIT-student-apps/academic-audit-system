@@ -8,6 +8,8 @@ import by.bsuir.academicauditsystemgateway.exception.RequestNotFoundException;
 import by.bsuir.academicauditsystemgateway.repository.DocumentAnalyzeRequestRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -46,7 +48,8 @@ public class DocumentAnalyzeRequestService {
     }
 
     public List<DocumentAnalyzeRequestDto> getRequestsByUserId(Long userId, Integer page, Integer size) {
-        return requestRepository.findAllByUserId(userId)
+        Pageable pageable = PageRequest.of(page, size);
+        return requestRepository.findAllByUserId(userId, pageable)
                 .stream()
                 .map(requestMapper::toDto)
                 .collect(Collectors.toList());
