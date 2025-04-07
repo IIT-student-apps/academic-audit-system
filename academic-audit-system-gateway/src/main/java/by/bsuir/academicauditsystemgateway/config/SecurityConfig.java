@@ -33,7 +33,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthFilter jwtAuthFilter,
                                                    AuthenticationProvider authenticationProvider,
-                                                   UserAnalyzeRequestAuthorizationManager requestAuthManager) throws Exception {
+                                                   UserAnalyzeRequestAndDocumentAuthorizationManager requestAuthManager) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable);
 
         http.cors(cors -> cors.configurationSource(request -> {

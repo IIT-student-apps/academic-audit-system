@@ -19,7 +19,7 @@ public class DocumentAnalyzeRequestOutboxEvent {
     @Column(name = "is_published", nullable = false)
     private boolean isPublished;
 
-    @OneToOne(fetch = FetchType.EAGER)
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "request_id", nullable = false)
     private DocumentAnalyzeRequest analyzeRequest;
 

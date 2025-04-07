@@ -8,7 +8,6 @@ import org.mapstruct.factory.Mappers;
 
 @Mapper
 public interface DocumentAnalyzeRequestMapper {
-    DocumentAnalyzeRequestMapper INSTANCE = Mappers.getMapper(DocumentAnalyzeRequestMapper.class);
 
     @Mapping(source = "user.id", target = "userId")
     DocumentAnalyzeRequestDto toDto(DocumentAnalyzeRequest entity);

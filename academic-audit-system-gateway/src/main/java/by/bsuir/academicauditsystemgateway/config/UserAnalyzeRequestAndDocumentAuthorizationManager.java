@@ -16,7 +16,7 @@ import java.util.function.Supplier;
 
 @RequiredArgsConstructor
 @Component
-public class UserAnalyzeRequestAuthorizationManager implements AuthorizationManager<RequestAuthorizationContext> {
+public class UserAnalyzeRequestAndDocumentAuthorizationManager implements AuthorizationManager<RequestAuthorizationContext> {
     private static final short RESOURCE_ID_QUERY_POSITION = 4;
 
     private final DocumentAnalyzeRequestService analyzeRequestService;
