@@ -1,0 +1,8 @@
+databaseChangeLog:
+  - changeSet:
+      id: v1-001
+      author: kovalski
+      changes:
+        - sqlFile:
+            path: db/changelog/v1_0/sql/schema.sql
+            encoding: utf8

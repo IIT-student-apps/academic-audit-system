@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   zookeeper:
     image: wurstmeister/zookeeper:latest
@@ -27,6 +25,23 @@ services:
       - zookeeper
     networks:
       - academic-audit-system-network
+    volumes:
+      - ./app-data/kafka-data:/var/lib/kafka/data
+
+  mongo:
+    image: mongodb/mongodb-community-server:6.0-ubi8
+    container_name: mongo
+    environment:
+      - MONGODB_INITDB_ROOT_USERNAME=root
+      - MONGODB_INITDB_ROOT_PASSWORD=root
+    networks:
+      - academic-audit-system-network
+    user:
+      root
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./app-data/mongo-data:/data/db
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -41,6 +56,33 @@ services:
       - kafka
     networks:
       - academic-audit-system-network
+
+  postgres:
+    image: postgres:13
+    restart: always
+    container_name: postgres
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: academic_audit_system_db
+    networks:
+      - academic-audit-system-network
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./app-data/postgres-data:/var/lib/postgresql/data
+
+  gateway:
+    image: kovalskiii/aas-gateway:latest
+    container_name: gateway
+    networks:
+      - academic-audit-system-network
+    ports:
+      - "8080:8080"
+
+volumes:
+  mongo-volume:
+
 
 networks:
   academic-audit-system-network:
