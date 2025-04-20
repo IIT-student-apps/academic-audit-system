@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY')
+SECRET_KEY = 'django-insecure-t2brtg(k1kur)00vj+vk%28vffu^-*g_b^*7!ol9q!au2^c-cw'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -142,7 +142,7 @@ DATABASES = {
 }
 
 MONGO_DB = {
-    'URI': 'mongodb://root:root@mongo:27017/',
+    'URI': 'mongodb://root:root@mongo:27017/academic_audit_system_db?authSource=admin',
     'DB_NAME': 'academic_audit_system_db'
 }
 
