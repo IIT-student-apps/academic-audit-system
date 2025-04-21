@@ -1,5 +1,5 @@
 from django.db import transaction
-from document_analyzer.analyzer.models import DocumentAnalyzeRequest
+from analyzer.models import DocumentAnalyzeRequest
 
 
 class PostgresService:

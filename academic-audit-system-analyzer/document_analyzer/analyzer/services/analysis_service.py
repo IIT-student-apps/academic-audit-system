@@ -1,9 +1,9 @@
 import json
 import traceback
 
-from document_analyzer.analyzer.utils.analyzers import TextAnalyzer
-from document_analyzer.analyzer.utils.plagiarism import PlagiarismService
-from document_analyzer.analyzer.utils.processors import DocumentProcessor
+from analyzer.utils.analyzers import TextAnalyzer
+from analyzer.utils.plagiarism import PlagiarismService
+from analyzer.utils.processors import DocumentProcessor
 
 
 class AnalysisService:

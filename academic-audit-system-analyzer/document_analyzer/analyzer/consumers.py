@@ -1,9 +1,8 @@
 import json
 from kafka import KafkaConsumer
-
-from document_analyzer.analyzer.services.analysis_service import AnalysisService
-from document_analyzer.analyzer.services.mongo_service import MongoService
-from document_analyzer.analyzer.services.postgres_service import PostgresService
+from analyzer.services.analysis_service import AnalysisService
+from analyzer.services.mongo_service import MongoService
+from analyzer.services.postgres_service import PostgresService
 
 
 class DocumentAnalyzerConsumer:

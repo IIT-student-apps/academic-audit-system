@@ -1,27 +1,40 @@
-import magic, PyPDF2, os
+import os
+import PyPDF2
 from docx import Document
+from mimetypes import guess_type
 
 
 class DocumentProcessor:
 	@staticmethod
 	def get_file_extension(file_path):
 		"""Определяет расширение файла"""
-		mime = magic.Magic(mime=True)
-		file_type = mime.from_file(file_path)
-
-		if file_type == 'application/pdf':
+		# Первый вариант: по расширению файла
+		ext = os.path.splitext(file_path)[1].lower()
+		if ext == '.pdf':
 			return 'pdf'
-		elif file_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+		elif ext == '.docx':
+			return 'docx'
+		elif ext == '.txt':
+			return 'txt'
+
+		# Второй вариант: по MIME-типу (если первый не сработал)
+		mime_type, _ = guess_type(file_path)
+		if mime_type == 'application/pdf':
+			return 'pdf'
+		elif mime_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 						   'application/msword']:
 			return 'docx'
-		elif file_type == 'text/plain':
+		elif mime_type == 'text/plain':
 			return 'txt'
-		else:
-			raise ValueError(f"Unsupported file type: {file_type}")
+
+		raise ValueError(f"Unsupported file type: {file_path}")
 
 	@staticmethod
-	def extract_text(file_path, file_type):
-		"""Извлекает текст из файла в зависимости от его типа"""
+	def extract_text(file_path, file_type=None):
+		"""Извлекает текст из файла"""
+		if file_type is None:
+			file_type = DocumentProcessor.get_file_extension(file_path)
+
 		if file_type == 'pdf':
 			return DocumentProcessor._extract_from_pdf(file_path)
 		elif file_type == 'docx':
