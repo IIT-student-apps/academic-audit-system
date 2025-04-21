@@ -8,7 +8,7 @@ from analyzer.services.postgres_service import PostgresService
 class DocumentAnalyzerConsumer:
 	def __init__(self):
 		self.consumer = KafkaConsumer(
-			'document-analyze-topic',
+			'spring.kafka.template.default-topic',
 			bootstrap_servers='kafka:9092',
 			group_id='django-consumer-group',
 			value_deserializer=lambda x: json.loads(x.decode('utf-8')))
