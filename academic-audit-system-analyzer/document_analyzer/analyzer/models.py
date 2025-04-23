@@ -1,5 +1,6 @@
 from django.db import models
 import uuid
+from django.db.models import JSONField
 
 
 class DocumentAnalyzeRequest(models.Model):
@@ -7,7 +8,7 @@ class DocumentAnalyzeRequest(models.Model):
 	request_status = models.CharField(max_length=50)
 	user_id = models.BigIntegerField()
 	document_id = models.CharField(max_length=255)
-	report_data = models.TextField(null=True, blank=True)
+	report_data = JSONField(null=True, blank=True)
 
 	class Meta:
 		db_table = 'document_analyze_request'

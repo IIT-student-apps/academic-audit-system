@@ -1,4 +1,6 @@
 import json
+import os
+import tempfile
 import traceback
 
 from analyzer.utils.analyzers import TextAnalyzer
@@ -8,28 +10,33 @@ from analyzer.utils.processors import DocumentProcessor
 
 class AnalysisService:
 	@staticmethod
-	def analyze_document(file_content):
+	def analyze_document(file_content, original_filename=None):
 		"""
 		Анализирует документ и возвращает отчет в формате JSON
 		Включает текстовый анализ и проверку на плагиат
 
 		Args:
 			file_content: bytes - содержимое файла из GridFS
-
+			original_filename: None - название файла
 		Returns:
 			str: JSON строка с результатами анализа
 		"""
 		try:
-			# Сохраняем временный файл для обработки
-			temp_file_path = "/tmp/temp_document"
-			with open(temp_file_path, "wb") as f:
-				f.write(file_content)
+			with tempfile.NamedTemporaryFile(
+					delete=False,
+					suffix=os.path.splitext(original_filename)[1] if original_filename else '.txt'
+			) as temp_file:
+				temp_file.write(file_content)
+				temp_file_path = temp_file.name
 
 			# Определяем тип файла по расширению
 			file_ext = DocumentProcessor.get_file_extension(temp_file_path)
 
 			# Извлекаем текст из документа
 			text = DocumentProcessor.extract_text(temp_file_path, file_ext)
+
+			# Удаляем временный файл
+			os.unlink(temp_file_path)
 
 			# Выполняем полный анализ текста
 			analyzer = TextAnalyzer()

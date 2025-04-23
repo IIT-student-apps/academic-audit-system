@@ -1,219 +1,173 @@
-import os
-
+import json
 import requests
 import time
-from bs4 import BeautifulSoup
-import json
 from concurrent.futures import ThreadPoolExecutor
+from dotenv import load_dotenv
+import os
 
 
 class APIException(Exception):
-	pass
+    pass
+
+
+load_dotenv()
 
 
 class PlagiarismService:
-	TEXT_RU_API_KEY = os.getenv('TEXT_RU_API_KEY')
+    TEXT_RU_API_KEY = os.getenv('TEXT_RU_API_KEY')
 
-	@staticmethod
-	def check_all_services(text, title=None):
-		"""Основной метод для проверки через все сервисы"""
-		results = {
-			"text_ru": PlagiarismService.check_text_ru_wrapper(text, title),
-			"duplichecker": PlagiarismService._check_duplichecker(text)
-		}
-		return results
+    @staticmethod
+    def check_all_services(text, title=None, max_wait_time=300):
+        """Проверяет текст и ждёт результат не дольше max_wait_time секунд."""
+        return {
+            "text_ru": PlagiarismService._check_textru(text, title, max_wait_time),
+        }
 
-	@staticmethod
-	def check_text_ru_wrapper(text, title=None, max_retries=3, wait_time=20):
-		"""
-		Обертка для проверки через text.ru с автоматическим ожиданием результатов
-		"""
-		try:
-			# 1. Отправляем текст на проверку
-			init_result = PlagiarismService.check_textru(text, title)
-			text_uid = init_result['text_uid']
+    @staticmethod
+    def _check_textru(text, title=None, max_wait_time=300):
+        """Отправляет текст и ждёт результат с прогрессивной проверкой."""
+        try:
+            # 1. Отправка текста и получение UID
+            uid = PlagiarismService._submit_text(text, title)
+            if not uid:
+                raise APIException("Не удалось получить UID проверки")
 
-			# 2. Ждем и получаем результаты с несколькими попытками
-			for attempt in range(max_retries):
-				time.sleep(wait_time)
-				result = PlagiarismService.get_textru_result(text_uid)
+            # 2. Ожидание результата с прогрессивным интервалом
+            return PlagiarismService._wait_for_result(uid, max_wait_time)
 
-				if result.get('status') != 'pending':
-					return {
-						"unique": result.get('unique'),
-						"spam": result.get('spam'),
-						"water": result.get('water'),
-						"seo": result.get('seo'),
-						"matches": result.get('matches', []),
-						"service": "text.ru"
-					}
+        except Exception as e:
+            raise APIException(f"Ошибка Text.ru: {str(e)}")
 
-			raise APIException("Превышено время ожидания результатов от text.ru")
+    @staticmethod
+    def _submit_text(text, title):
+        """Отправляет текст на проверку и возвращает UID."""
+        response = requests.post(
+            'https://api.text.ru/post',
+            data={
+                'text': text,
+                'userkey': PlagiarismService.TEXT_RU_API_KEY,
+                'title': title or '',
+                'visible': 'vis_on',  # Изменено с vis_off на vis_on согласно документации
+                'copying': 'noadd'
+            },
+            timeout=10
+        )
+        response.raise_for_status()
+        data = response.json()
 
-		except Exception as e:
-			return {"error": str(e)}
+        if 'error_code' in data:
+            raise APIException(f"Text.ru API error: {data.get('error_desc', 'Unknown error')}")
 
-	@staticmethod
-	def check_textru(text, title=None):
-		"""
-		Отправка текста на проверку в text.ru
-		Возвращает UID для проверки статуса
-		"""
-		try:
-			post_data = {
-				'text': text,
-				'userkey': PlagiarismService.TEXT_RU_API_KEY
-			}
-			if title:
-				post_data['title'] = title
+        return data.get('text_uid') or data.get('uid')
 
-			response = requests.post(
-				'https://api.text.ru/post',
-				data=post_data,
-				timeout=10
-			)
-			response.raise_for_status()
-			post_result = response.json()
+    @staticmethod
+    def _wait_for_result(uid, max_wait_time):
+        """Ожидает результат с увеличивающимся интервалом проверки."""
+        start_time = time.time()
+        check_interval = 5  # Начинаем с 5 секунд
 
-			if 'error_code' in post_result:
-				raise APIException(f"Text.ru API error: {post_result.get('error_desc', 'Unknown error')}")
+        last_status = None
 
-			return {
-				'text_uid': post_result['text_uid'],
-				'message': 'Text submitted for analysis'
-			}
+        while time.time() - start_time < max_wait_time:
+            result = PlagiarismService._get_result(uid)
 
-		except requests.exceptions.RequestException as e:
-			raise APIException(f"Ошибка соединения с text.ru: {str(e)}")
-		except Exception as e:
-			raise APIException(f"Ошибка при работе с text.ru API: {str(e)}")
+            if result['status'] == 'completed':
+                return {
+                    'unique': float(result.get('text_unique', 0)),
+                    'plagiarism': float(result.get('text_plagiat', 0)),
+                    'water': float(result.get('water_percent', 0)),
+                    'spam': float(result.get('spam_percent', 0)),
+                    'seo_data': result.get('seo_check', {}),
+                    'matches': result.get('matches', []),
+                }
+            elif result['status'] == 'error':
+                raise APIException(result.get('message', 'Unknown error during check'))
 
-	@staticmethod
-	def get_textru_result(text_uid):
-		"""
-		Получение результатов проверки из text.ru по UID
-		"""
-		try:
-			params = {
-				'uid': text_uid,
-				'userkey': PlagiarismService.TEXT_RU_API_KEY,
-				'jsonvisible': 'detail'
-			}
+            # Увеличиваем интервал проверки (но не более 30 секунд)
+            check_interval = min(check_interval * 1.5, 30)
 
-			response = requests.get(
-				'https://api.text.ru/post',
-				params=params,
-				timeout=10
-			)
-			response.raise_for_status()
-			result = response.json()
+            # Логирование статуса (можно убрать в продакшене)
+            if last_status != result['status']:
+                print(f"Text.ru check status: {result['status']}, next check in {check_interval:.1f}s")
+                last_status = result['status']
 
-			if 'error_code' in result:
-				if result['error_code'] == 201:
-					return {'status': 'pending'}
-				raise APIException(f"Text.ru API error: {result.get('error_desc', 'Unknown error')}")
+            time.sleep(check_interval)
 
-			return {
-				'unique': result.get('text_unique'),
-				'spam': result.get('text_spam'),
-				'water': result.get('text_water'),
-				'seo': result.get('seo_check'),
-				'matches': [
-					{
-						'url': match.get('url'),
-						'percent': match.get('percent'),
-						'words': match.get('words')
-					} for match in result.get('matches', [])
-				],
-				'status': 'completed'
-			}
+        raise APIException(f"Проверка не завершена за {max_wait_time} секунд")
 
-		except requests.exceptions.RequestException as e:
-			raise APIException(f"Ошибка соединения с text.ru: {str(e)}")
-		except Exception as e:
-			raise APIException(f"Ошибка при получении результатов: {str(e)}")
+    @staticmethod
+    def _get_result(uid):
+        """Запрашивает текущий статус проверки."""
+        try:
+            response = requests.post(
+                'https://api.text.ru/post',
+                data={
+                    'uid': uid,
+                    'userkey': PlagiarismService.TEXT_RU_API_KEY,
+                    'jsonvisible': 'detail'
+                },
+                timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
 
-	@staticmethod
-	def _check_duplichecker(text):
-		"""
-		Проверка через DupliChecker.com (бесплатный, без API ключа)
-		"""
-		try:
-			# 1. Получаем CSRF токен
-			session = requests.Session()
-			home_page = session.get("https://www.duplichecker.com/")
-			soup = BeautifulSoup(home_page.text, 'html.parser')
-			csrf_token = soup.find('input', {'name': 'csrf_token'})['value']
+            # Обработка ошибок API
+            if 'error_code' in data:
+                error_desc = data.get('error_desc', '')
+                if "ещё не проверен" in error_desc or "проверяется" in error_desc:
+                    return {'status': 'pending'}
+                return {
+                    'status': 'error',
+                    'message': error_desc or 'Unknown API error'
+                }
 
-			# 2. Отправляем текст на проверку
-			check_url = "https://www.duplichecker.com/action/check-plagiarism.php"
-			headers = {
-				"User-Agent": "Mozilla/5.0",
-				"Origin": "https://www.duplichecker.com",
-				"Referer": "https://www.duplichecker.com/"
-			}
-			payload = {
-				"csrf_token": csrf_token,
-				"paste_text": text,
-				"check_plagiarism": ""
-			}
+            # Проверка завершена
+            if 'text_unique' in data:
+                # Обработка SEO данных (могут быть строкой JSON)
+                seo_data = data.get('seo_check')
+                if isinstance(seo_data, str):
+                    try:
+                        seo_data = json.loads(seo_data)
+                    except json.JSONDecodeError:
+                        seo_data = {}
 
-			response = session.post(check_url, data=payload, headers=headers)
+                # Добавлена обработка списка совпадений (matches)
+                matches = data.get('matches', [])
+                if isinstance(matches, str):
+                    try:
+                        matches = json.loads(matches)
+                    except json.JSONDecodeError:
+                        matches = []
 
-			# 3. Парсим результаты
-			soup = BeautifulSoup(response.text, 'html.parser')
-			result_div = soup.find('div', {'class': 'check-results'})
+                return {
+                    'status': 'completed',
+                    'text_unique': data['text_unique'],
+                    'text_plagiat': data.get('text_plagiat', '0'),
+                    'water_percent': data.get('water_percent', '0'),
+                    'spam_percent': data.get('spam_percent', '0'),
+                    'seo_check': seo_data,
+                    'matches': matches
+                }
 
-			if not result_div:
-				return {"error": "Failed to parse DupliChecker results"}
+            return {'status': 'pending'}
 
-			# Извлекаем процент уникальности
-			unique_percent = 100
-			percent_tag = soup.find('span', {'class': 'unique'})
-			if percent_tag:
-				try:
-					unique_percent = float(percent_tag.text.strip('%'))
-				except:
-					pass
+        except requests.RequestException as e:
+            return {
+                'status': 'error',
+                'message': f"Request failed: {str(e)}"
+            }
+        except json.JSONDecodeError:
+            return {
+                'status': 'error',
+                'message': "Invalid JSON response from API"
+            }
 
-			# Извлекаем источники плагиата
-			sources = []
-			sources_div = soup.find('div', {'class': 'sources-list'})
-			if sources_div:
-				for li in sources_div.find_all('li'):
-					source = li.find('a')
-					if source:
-						sources.append({
-							"url": source['href'],
-							"text": source.text.strip()
-						})
-
-			return {
-				"score": 100 - unique_percent,
-				"matches": sources,
-				"unique_percent": unique_percent
-			}
-
-		except Exception as e:
-			return {"error": str(e)}
-
-	@staticmethod
-	def async_check_all(text, title=None):
-		"""
-		Асинхронная проверка через все сервисы
-		"""
-		with ThreadPoolExecutor() as executor:
-			future_textru = executor.submit(
-				PlagiarismService.check_text_ru_wrapper,
-				text,
-				title
-			)
-			future_dupli = executor.submit(
-				PlagiarismService._check_duplichecker,
-				text
-			)
-
-			return {
-				"text_ru": future_textru.result(),
-				"duplichecker": future_dupli.result()
-			}
+    @staticmethod
+    def async_check_all(text, title=None, max_wait_time=300):
+        """Асинхронная проверка с ограниченным временем ожидания."""
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(
+                PlagiarismService.check_all_services,
+                text, title, max_wait_time
+            )
+            return future.result()
