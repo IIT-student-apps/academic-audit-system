@@ -21,7 +21,7 @@ public class OutboxEventService {
     private final DocumentAnalyzeRequestOutboxEventRepository outboxRepository;
     private final KafkaTemplate<String, DocumentAnalyzeRequestDto> kafkaTemplate;
 
-    @Value("spring.kafka.template.default-topic")
+    @Value("${spring.kafka.template.default-topic}")
     private String kafkaTopic;
 
     @Transactional
