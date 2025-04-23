@@ -56,7 +56,7 @@ class AnalysisService:
 				}
 			}
 
-			return json.dumps(report)
+			return json.dumps(report,  indent=4)
 
 		except Exception as e:
 			error_report = {

@@ -12,7 +12,9 @@ def test_analyze_document():
 
     # 3. Выводим результат в читаемом виде
     result = json.loads(result_json)
-    print(json.dumps(result, indent=4))
+    pretty_json = json.dumps(result, indent=4, ensure_ascii=False)  # ensure_ascii=False для кириллицы
+
+    print(pretty_json)
 
 
 if __name__ == "__main__":
