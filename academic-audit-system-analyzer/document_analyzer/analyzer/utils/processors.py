@@ -2,8 +2,6 @@ import os
 import logging
 import PyPDF2
 from docx import Document
-import magic
-import chardet
 from typing import Optional, BinaryIO
 import tempfile
 
@@ -18,29 +16,41 @@ logger = logging.getLogger('DocumentProcessor')
 class DocumentProcessor:
 	@staticmethod
 	def get_file_extension(file_path: str) -> str:
-		"""Определяет расширение файла с проверкой содержимого"""
+		"""Определяет расширение файла по сигнатуре и расширению"""
 		logger.info(f"Определение типа файла: {file_path}")
+
 		if not os.path.exists(file_path):
 			error_msg = f"Файл не найден: {file_path}"
 			logger.error(error_msg)
 			raise FileNotFoundError(error_msg)
 
+		# Сначала проверяем сигнатуру файла
 		try:
-			mime = magic.Magic(mime=True)
-			file_type = mime.from_file(file_path)
-			logger.debug(f"MIME-тип определен как: {file_type}")
+			with open(file_path, 'rb') as f:
+				header = f.read(8)  # Читаем первые 8 байт
 
-			if file_type == 'application/pdf':
-				return 'pdf'
-			elif file_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-							   'application/msword']:
-				return 'docx'
-			elif file_type == 'text/plain':
-				return 'txt'
+				# PDF
+				if header.startswith(b'%PDF'):
+					return 'pdf'
+
+				# DOCX (ZIP-архив)
+				if header.startswith(b'PK\x03\x04'):
+					# Дополнительная проверка на DOCX
+					f.seek(0)
+					zip_header = f.read(30)
+					if b'word/document.xml' in zip_header or b'[Content_Types].xml' in zip_header:
+						return 'docx'
+
+				# TXT (пробуем декодировать как ASCII)
+				try:
+					header.decode('ascii')
+					return 'txt'
+				except UnicodeDecodeError:
+					pass
 		except Exception as e:
-			logger.warning(f"Ошибка определения MIME-типа: {str(e)}. Использую расширение файла")
+			logger.warning(f"Ошибка анализа файла: {str(e)}")
 
-		# Резервный вариант по расширению файла
+		# Если по сигнатуре не определили, проверяем расширение
 		ext = os.path.splitext(file_path)[1].lower()
 		logger.debug(f"Определение по расширению: {ext}")
 
@@ -179,54 +189,22 @@ class DocumentProcessor:
 
 	@staticmethod
 	def _extract_from_txt(file_obj: BinaryIO) -> str:
-		"""Извлечение текста из TXT с автоопределением кодировки"""
-		try:
-			logger.debug("Чтение TXT файла")
-			raw_data = file_obj.read()
-			file_size = len(raw_data)
-			logger.debug(f"Размер файла: {file_size} байт")
+		"""Извлечение текста из TXT с попыткой разных кодировок"""
+		raw_data = file_obj.read()
 
-			# Попробуем UTF-8 сначала
+		# Список кодировок для попытки (можно расширить)
+		encodings = ['utf-8', 'utf-16', 'cp1251', 'cp1252', 'iso-8859-1', 'koi8-r']
+
+		for enc in encodings:
 			try:
-				text = raw_data.decode('utf-8')
-				logger.debug("Файл успешно декодирован как UTF-8")
-				return text
+				return raw_data.decode(enc)
 			except UnicodeDecodeError:
-				logger.debug("Не удалось декодировать как UTF-8, пробуем определить кодировку")
-				pass
+				continue
 
-			# Определяем кодировку автоматически
-			try:
-				logger.debug("Автоопределение кодировки...")
-				result = chardet.detect(raw_data)
-				encoding = result['encoding']
-				confidence = result['confidence']
-				logger.debug(f"Определена кодировка: {encoding} (точность: {confidence:.2%})")
-
-				if encoding:
-					text = raw_data.decode(encoding)
-					logger.debug(f"Успешно декодировано как {encoding}")
-					return text
-			except Exception as e:
-				logger.warning(f"Ошибка автоопределения кодировки: {str(e)}")
-				pass
-
-			# Попробуем распространенные кодировки
-			common_encodings = ['utf-16', 'windows-1251', 'cp1252', 'iso-8859-1', 'koi8-r']
-			logger.debug(f"Попытка ручного декодирования: {common_encodings}")
-
-			for enc in common_encodings:
-				try:
-					text = raw_data.decode(enc)
-					logger.debug(f"Успешно декодировано как {enc}")
-					return text
-				except UnicodeDecodeError:
-					continue
-
-			error_msg = "Не удалось декодировать текстовый файл"
+		# Если ничего не сработало, пробуем с заменой ошибок
+		try:
+			return raw_data.decode('utf-8', errors='replace')
+		except Exception as e:
+			error_msg = f"Не удалось декодировать текстовый файл: {str(e)}"
 			logger.error(error_msg)
 			raise RuntimeError(error_msg)
-		except Exception as e:
-			error_msg = f"Ошибка чтения TXT файла: {str(e)}"
-			logger.error(error_msg, exc_info=True)
-			raise RuntimeError(error_msg) from e
