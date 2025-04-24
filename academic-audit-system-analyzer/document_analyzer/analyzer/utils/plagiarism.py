@@ -47,7 +47,7 @@ class PlagiarismService:
                 'text': text,
                 'userkey': PlagiarismService.TEXT_RU_API_KEY,
                 'title': title or '',
-                'visible': 'vis_on',  # Изменено с vis_off на vis_on согласно документации
+                'visible': 'vis_on',
                 'copying': 'noadd'
             },
             timeout=10
