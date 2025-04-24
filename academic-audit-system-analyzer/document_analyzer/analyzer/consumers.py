@@ -53,7 +53,7 @@ class DocumentAnalyzerConsumer:
             logger.debug(f"Fetching file content with fileId: {doc_meta['fileId']}")
             file_content = self.mongo_service.get_file_content(doc_meta['fileId'])
             logger.debug("Successfully fetched file content")
-            print(file_content)
+            logger.debug(f'{file_content}')
 
             # Шаг 3: Анализируем документ
             logger.info("Starting document analysis")
