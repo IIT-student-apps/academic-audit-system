@@ -1,210 +1,119 @@
 import os
-import logging
-import PyPDF2
-from docx import Document
-from typing import Optional, BinaryIO
-import tempfile
+from abc import ABC, abstractmethod
+from typing import Optional, Union
+from io import BytesIO
+import pdfplumber
+import docx
+from gridfs import GridOut
 
-# Настройка логирования
-logging.basicConfig(
-	level=logging.INFO,
-	format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger('DocumentProcessor')
+
+class BaseTextExtractor(ABC):
+	"""Абстрактный базовый класс для извлечения текста из файлов"""
+
+	@staticmethod
+	@abstractmethod
+	def extract_text(file_content: Union[bytes, BytesIO]) -> str:
+		"""Извлекает текст из файла"""
+		pass
+
+
+class PDFTextExtractor(BaseTextExtractor):
+	"""Извлекает текст из PDF файлов"""
+
+	@staticmethod
+	def extract_text(file_content: Union[bytes, BytesIO]) -> str:
+		text = []
+		if isinstance(file_content, bytes):
+			file_content = BytesIO(file_content)
+
+		with pdfplumber.open(file_content) as pdf:
+			for page in pdf.pages:
+				text.append(page.extract_text())
+		return "\n".join(text)
+
+
+class DOCXTextExtractor(BaseTextExtractor):
+	"""Извлекает текст из DOCX файлов"""
+
+	@staticmethod
+	def extract_text(file_content: Union[bytes, BytesIO]) -> str:
+		if isinstance(file_content, BytesIO):
+			file_content = file_content.getvalue()
+		doc = docx.Document(BytesIO(file_content))
+		return "\n".join([paragraph.text for paragraph in doc.paragraphs])
+
+
+class PlainTextExtractor(BaseTextExtractor):
+	"""Извлекает текст из простых текстовых файлов"""
+
+	@staticmethod
+	def extract_text(file_content: Union[bytes, BytesIO]) -> str:
+		if isinstance(file_content, BytesIO):
+			file_content = file_content.getvalue()
+		return file_content.decode('utf-8')
 
 
 class DocumentProcessor:
-	@staticmethod
-	def get_file_extension(file_path: str) -> str:
-		"""Определяет расширение файла по сигнатуре и расширению"""
-		logger.info(f"Определение типа файла: {file_path}")
+	"""Обработчик документов для извлечения текста из различных форматов файлов"""
 
-		if not os.path.exists(file_path):
-			error_msg = f"Файл не найден: {file_path}"
-			logger.error(error_msg)
-			raise FileNotFoundError(error_msg)
-
-		# Сначала проверяем сигнатуру файла
-		try:
-			with open(file_path, 'rb') as f:
-				header = f.read(8)  # Читаем первые 8 байт
-
-				# PDF
-				if header.startswith(b'%PDF'):
-					return 'pdf'
-
-				# DOCX (ZIP-архив)
-				if header.startswith(b'PK\x03\x04'):
-					# Дополнительная проверка на DOCX
-					f.seek(0)
-					zip_header = f.read(30)
-					if b'word/document.xml' in zip_header or b'[Content_Types].xml' in zip_header:
-						return 'docx'
-
-				# TXT (пробуем декодировать как ASCII)
-				try:
-					header.decode('ascii')
-					return 'txt'
-				except UnicodeDecodeError:
-					pass
-		except Exception as e:
-			logger.warning(f"Ошибка анализа файла: {str(e)}")
-
-		# Если по сигнатуре не определили, проверяем расширение
-		ext = os.path.splitext(file_path)[1].lower()
-		logger.debug(f"Определение по расширению: {ext}")
-
-		if ext == '.pdf':
-			return 'pdf'
-		elif ext == '.docx':
-			return 'docx'
-		elif ext == '.txt':
-			return 'txt'
-
-		error_msg = f"Неподдерживаемый тип файла: {file_path}"
-		logger.error(error_msg)
-		raise ValueError(error_msg)
+	# Сопоставление расширений файлов с классами-обработчиками
+	EXTRACTORS = {
+		'.pdf': PDFTextExtractor,
+		'.docx': DOCXTextExtractor,
+		'.txt': PlainTextExtractor,
+	}
 
 	@staticmethod
-	def extract_text(file_path: str, file_type: Optional[str] = None) -> str:
-		"""Извлекает текст из файла с улучшенной обработкой ошибок"""
-		logger.info(f"Начало обработки файла: {file_path}")
-		try:
-			if file_type is None:
-				file_type = DocumentProcessor.get_file_extension(file_path)
-				logger.debug(f"Тип файла определен как: {file_type}")
-
-			with open(file_path, 'rb') as f:
-				if file_type == 'pdf':
-					logger.debug("Обработка PDF файла")
-					return DocumentProcessor._extract_from_pdf(f)
-				elif file_type == 'docx':
-					logger.debug("Обработка DOCX файла")
-					return DocumentProcessor._extract_from_docx(f)
-				elif file_type == 'txt':
-					logger.debug("Обработка TXT файла")
-					return DocumentProcessor._extract_from_txt(f)
-				else:
-					error_msg = f"Неподдерживаемый тип файла: {file_type}"
-					logger.error(error_msg)
-					raise ValueError(error_msg)
-		except Exception as e:
-			error_msg = f"Ошибка обработки файла {file_path}: {str(e)}"
-			logger.error(error_msg, exc_info=True)
-			raise RuntimeError(error_msg) from e
-		finally:
-			logger.info(f"Завершение обработки файла: {file_path}")
+	def get_file_extension(filename: str) -> str:
+		"""Возвращает расширение файла в нижнем регистре"""
+		return os.path.splitext(filename)[1].lower()
 
 	@staticmethod
-	def _extract_from_pdf(file_obj: BinaryIO) -> str:
-		"""Извлечение текста из PDF"""
-		try:
-			logger.debug("Чтение PDF файла")
-			reader = PyPDF2.PdfReader(file_obj)
+	def extract_text_from_bytes(file_content: Union[bytes, BytesIO], file_ext: str) -> str:
+		"""
+		Извлекает текст из байтового содержимого файла
 
-			if reader.is_encrypted:
-				logger.warning("PDF файл зашифрован, попытка чтения без пароля")
-				try:
-					reader.decrypt('')
-					logger.info("PDF файл успешно открыт без пароля")
-				except:
-					error_msg = "Не удалось прочитать зашифрованный PDF"
-					logger.error(error_msg)
-					raise RuntimeError(error_msg)
+		Args:
+			file_content: содержимое файла в виде bytes или BytesIO
+			file_ext: расширение файла (.pdf, .docx и т.д.)
 
-			text = ""
-			page_count = len(reader.pages)
-			logger.debug(f"Найдено {page_count} страниц в PDF")
+		Returns:
+			Извлеченный текст
 
-			for i, page in enumerate(reader.pages, 1):
-				page_text = page.extract_text()
-				if page_text:
-					text += page_text
-				logger.debug(f"Обработана страница {i}/{page_count}")
+		Raises:
+			ValueError: если формат файла не поддерживается
+		"""
+		extractor_class = DocumentProcessor.EXTRACTORS.get(file_ext)
+		if extractor_class is None:
+			raise ValueError(f"Unsupported file format: {file_ext}")
 
-			if not text.strip():
-				error_msg = "PDF не содержит извлекаемого текста (возможно изображения)"
-				logger.warning(error_msg)
-				raise RuntimeError(error_msg)
-
-			logger.debug(f"Успешно извлечено {len(text)} символов из PDF")
-			return text
-		except PyPDF2.PdfReadError as e:
-			error_msg = f"Ошибка чтения PDF: {str(e)}"
-			logger.error(error_msg)
-			raise RuntimeError(error_msg) from e
+		return extractor_class.extract_text(file_content)
 
 	@staticmethod
-	def _extract_from_docx(file_obj: BinaryIO) -> str:
-		"""Извлечение текста из DOCX"""
-		tmp_path = None
-		try:
-			logger.debug("Чтение DOCX файла")
+	def process_gridfs_file(grid_out: GridOut, original_filename: Optional[str] = None) -> str:
+		"""
+		Обрабатывает файл из GridFS, извлекая текст непосредственно из байтов
 
-			# Создаем временный файл для docx.Document
-			with tempfile.NamedTemporaryFile(delete=False) as tmp:
-				tmp.write(file_obj.read())
-				tmp_path = tmp.name
-				logger.debug(f"Создан временный файл: {tmp_path}")
+		Args:
+			grid_out: объект GridOut из GridFS
+			original_filename: оригинальное имя файла (для определения расширения)
 
-			doc = Document(tmp_path)
-			full_text = []
+		Returns:
+			Извлеченный текст
 
-			# Обработка параграфов
-			paragraphs = doc.paragraphs
-			logger.debug(f"Найдено {len(paragraphs)} параграфов")
-			for para in paragraphs:
-				if para.text.strip():
-					full_text.append(para.text)
+		Raises:
+			ValueError: если формат файла не поддерживается
+		"""
+		# Если имя файла не указано, пытаемся получить из метаданных GridFS
+		if original_filename is None:
+			original_filename = getattr(grid_out, 'filename', 'document.txt')
 
-			# Обработка таблиц
-			tables = doc.tables
-			logger.debug(f"Найдено {len(tables)} таблиц")
-			for table in tables:
-				for row in table.rows:
-					for cell in row.cells:
-						if cell.text.strip():
-							full_text.append(cell.text)
+		file_ext = DocumentProcessor.get_file_extension(original_filename)
 
-			text = "\n".join(full_text)
+		# Получаем содержимое файла из GridOut
+		file_content = grid_out.read()
 
-			if not text.strip():
-				error_msg = "DOCX файл пуст или не содержит извлекаемого текста"
-				logger.warning(error_msg)
-				raise RuntimeError(error_msg)
+		# Возвращаем указатель чтения в начало (на случай повторного использования)
+		grid_out.seek(0)
 
-			logger.debug(f"Успешно извлечено {len(text)} символов из DOCX")
-			return text
-		except Exception as e:
-			error_msg = f"Ошибка чтения DOCX: {str(e)}"
-			logger.error(error_msg, exc_info=True)
-			raise RuntimeError(error_msg) from e
-		finally:
-			if tmp_path and os.path.exists(tmp_path):
-				try:
-					os.unlink(tmp_path)
-					logger.debug(f"Временный файл {tmp_path} удален")
-				except Exception as e:
-					logger.warning(f"Ошибка удаления временного файла: {str(e)}")
-
-	@staticmethod
-	def _extract_from_txt(file_obj: BinaryIO) -> str:
-		"""Извлечение текста из TXT с попыткой разных кодировок"""
-		raw_data = file_obj.read()
-
-		# Список кодировок для попытки (можно расширить)
-		encodings = ['utf-8', 'utf-16', 'cp1251', 'cp1252', 'iso-8859-1', 'koi8-r']
-
-		for enc in encodings:
-			try:
-				return raw_data.decode(enc)
-			except UnicodeDecodeError:
-				continue
-
-		# Если ничего не сработало, пробуем с заменой ошибок
-		try:
-			return raw_data.decode('utf-8', errors='replace')
-		except Exception as e:
-			error_msg = f"Не удалось декодировать текстовый файл: {str(e)}"
-			logger.error(error_msg)
-			raise RuntimeError(error_msg)
+		return DocumentProcessor.extract_text_from_bytes(file_content, file_ext)

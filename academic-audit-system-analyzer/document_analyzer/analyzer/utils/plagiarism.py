@@ -50,7 +50,6 @@ class PlagiarismService:
                 'visible': 'vis_on',
                 'copying': 'noadd'
             },
-            timeout=10
         )
         response.raise_for_status()
         data = response.json()
