@@ -17,18 +17,18 @@ class PlagiarismService:
     TEXT_RU_API_KEY = os.getenv('TEXT_RU_API_KEY')
 
     @staticmethod
-    def check_all_services(text, title=None, max_wait_time=300):
+    def check_all_services(text, max_wait_time=300):
         """Проверяет текст и ждёт результат не дольше max_wait_time секунд."""
         return {
-            "text_ru": PlagiarismService._check_textru(text, title, max_wait_time),
+            "text_ru": PlagiarismService._check_textru(text, max_wait_time),
         }
 
     @staticmethod
-    def _check_textru(text, title=None, max_wait_time=300):
+    def _check_textru(text, max_wait_time=300):
         """Отправляет текст и ждёт результат с прогрессивной проверкой."""
         try:
             # 1. Отправка текста и получение UID
-            uid = PlagiarismService._submit_text(text, title)
+            uid = PlagiarismService._submit_text(text)
             if not uid:
                 raise APIException("Не удалось получить UID проверки")
 
@@ -39,16 +39,13 @@ class PlagiarismService:
             raise APIException(f"Ошибка Text.ru: {str(e)}")
 
     @staticmethod
-    def _submit_text(text, title):
+    def _submit_text(text):
         """Отправляет текст на проверку и возвращает UID."""
         response = requests.post(
             'https://api.text.ru/post',
             data={
                 'text': text,
                 'userkey': PlagiarismService.TEXT_RU_API_KEY,
-                'title': title or '',
-                'visible': 'vis_on',
-                'copying': 'noadd'
             },
         )
         response.raise_for_status()
@@ -57,7 +54,7 @@ class PlagiarismService:
         if 'error_code' in data:
             raise APIException(f"Text.ru API error: {data.get('error_desc', 'Unknown error')}")
 
-        return data.get('text_uid') or data.get('uid')
+        return data.get('text_uid')
 
     @staticmethod
     def _wait_for_result(uid, max_wait_time):
@@ -71,21 +68,63 @@ class PlagiarismService:
             result = PlagiarismService._get_result(uid)
 
             if result['status'] == 'completed':
+                # Обработка SEO данных
+                seo_data = {}
+                if 'seo_check' in result['data']:
+                    if isinstance(result['data']['seo_check'], str):
+                        try:
+                            seo_data = json.loads(result['data']['seo_check'])
+                        except json.JSONDecodeError:
+                            seo_data = {}
+                    else:
+                        seo_data = result['data']['seo_check'] or {}
+
+                # Обработка списка совпадений
+                matches = []
+                if 'result_json' in result['data'] and result['data']['result_json']:
+                    try:
+                        result_json = json.loads(result['data']['result_json']) if isinstance(result['data']['result_json'], str) else result['data']['result_json']
+                        matches = result_json.get('urls', [])
+                    except (json.JSONDecodeError, AttributeError):
+                        matches = []
+
+                # Обработка проверки орфографии
+                spell_errors = []
+                if 'spell_check' in result['data'] and result['data']['spell_check']:
+                    try:
+                        spell_data = json.loads(result['data']['spell_check']) if isinstance(result['data']['spell_check'], str) else result['data']['spell_check']
+                        if isinstance(spell_data, list):
+                            spell_errors = spell_data
+                    except (json.JSONDecodeError, AttributeError):
+                        spell_errors = []
+
+                # Безопасное преобразование числовых значений
+                def safe_float(value):
+                    try:
+                        return float(value) if value not in [None, ''] else 0.0
+                    except (ValueError, TypeError):
+                        return 0.0
+
+                text_unique = safe_float(result['data'].get('text_unique'))
+                water_percent = safe_float(seo_data.get('water_percent'))
+                spam_percent = safe_float(seo_data.get('spam_percent'))
+
                 return {
-                    'unique': float(result.get('text_unique', 0)),
-                    'plagiarism': float(result.get('text_plagiat', 0)),
-                    'water': float(result.get('water_percent', 0)),
-                    'spam': float(result.get('spam_percent', 0)),
-                    'seo_data': result.get('seo_check', {}),
-                    'matches': result.get('matches', []),
+                    'plagiarism': 100 - text_unique,
+                    'water': water_percent,
+                    'spam': spam_percent,
+                    'seo_data': {
+                        'count_chars_with_space': seo_data.get('count_chars_with_space'),
+                        'count_chars_without_space': seo_data.get('count_chars_without_space'),
+                        'mixed_words': seo_data.get('mixed_words', []),
+                    },
+                    'matches': matches,
+                    'spell_check': spell_errors
                 }
             elif result['status'] == 'error':
                 raise APIException(result.get('message', 'Unknown error during check'))
 
-            # Увеличиваем интервал проверки (но не более 30 секунд)
             check_interval = min(check_interval * 1.5, 30)
-
-            # Логирование статуса (можно убрать в продакшене)
             if last_status != result['status']:
                 print(f"Text.ru check status: {result['status']}, next check in {check_interval:.1f}s")
                 last_status = result['status']
@@ -110,7 +149,6 @@ class PlagiarismService:
             response.raise_for_status()
             data = response.json()
 
-            # Обработка ошибок API
             if 'error_code' in data:
                 error_desc = data.get('error_desc', '')
                 if "ещё не проверен" in error_desc or "проверяется" in error_desc:
@@ -120,32 +158,10 @@ class PlagiarismService:
                     'message': error_desc or 'Unknown API error'
                 }
 
-            # Проверка завершена
             if 'text_unique' in data:
-                # Обработка SEO данных (могут быть строкой JSON)
-                seo_data = data.get('seo_check')
-                if isinstance(seo_data, str):
-                    try:
-                        seo_data = json.loads(seo_data)
-                    except json.JSONDecodeError:
-                        seo_data = {}
-
-                # Добавлена обработка списка совпадений (matches)
-                matches = data.get('matches', [])
-                if isinstance(matches, str):
-                    try:
-                        matches = json.loads(matches)
-                    except json.JSONDecodeError:
-                        matches = []
-
                 return {
                     'status': 'completed',
-                    'text_unique': data['text_unique'],
-                    'text_plagiat': data.get('text_plagiat', '0'),
-                    'water_percent': data.get('water_percent', '0'),
-                    'spam_percent': data.get('spam_percent', '0'),
-                    'seo_check': seo_data,
-                    'matches': matches
+                    'data': data
                 }
 
             return {'status': 'pending'}
@@ -162,11 +178,11 @@ class PlagiarismService:
             }
 
     @staticmethod
-    def async_check_all(text, title=None, max_wait_time=300):
+    def async_check_all(text, max_wait_time=300):
         """Асинхронная проверка с ограниченным временем ожидания."""
         with ThreadPoolExecutor() as executor:
             future = executor.submit(
                 PlagiarismService.check_all_services,
-                text, title, max_wait_time
+                text, max_wait_time
             )
             return future.result()
