@@ -14,7 +14,7 @@ load_dotenv()
 
 
 class PlagiarismService:
-    TEXT_RU_API_KEY = os.getenv('TEXT_RU_API_KEY')
+    TEXT_RU_API_KEY = '248da737b100d510e5a9c9a15399cb44'
 
     @staticmethod
     def check_all_services(text, max_wait_time=300):
