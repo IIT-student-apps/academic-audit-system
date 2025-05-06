@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv()
 
-SECRET_KEY = 'django-insecure-t2brtg(k1kur)00vj+vk%28vffu^-*g_b^*7!ol9q!au2^c-cw'
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -123,24 +123,24 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Настройки PostgreSQL
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'academic_audit_system_db',
-        'USER': 'root',
-        'PASSWORD': 'root',
-        'HOST': 'postgres',
-        'PORT': 5432
+        'ENGINE': os.getenv('DB_ENGINE'),
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT'),
     }
 }
 
 # Настройки MongoDB
 MONGO_DB = {
-    'URI': 'mongodb://root:root@mongo:27017/academic_audit_system_db?authSource=admin',
-    'DB_NAME': 'academic_audit_system_db'
+    'URI': os.getenv('MONGO_URI'),
+    'DB_NAME': os.getenv('MONGO_DB_NAME')
 }
 
 # Настройки Kafka
 KAFKA_CONFIG = {
-    'BOOTSTRAP_SERVERS': 'kafka:9092',
-    'TOPIC': 'document-analyze-topic',
-    'GROUP_ID': 'django-consumer-group'
+    'BOOTSTRAP_SERVERS': os.getenv('KAFKA_BOOTSTRAP_SERVERS'),
+    'TOPIC': os.getenv('KAFKA_TOPIC'),
+    'GROUP_ID': os.getenv('KAFKA_GROUP_ID')
 }

@@ -4,6 +4,10 @@ from kafka import KafkaConsumer
 from analyzer.services.analysis_service import AnalysisService
 from analyzer.services.mongo_service import MongoService
 from analyzer.services.postgres_service import PostgresService
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 # Настройка логгера
 logger = logging.getLogger(__name__)
@@ -23,9 +27,9 @@ class DocumentAnalyzerConsumer:
         logger.info("Initializing DocumentAnalyzerConsumer...")
         try:
             self.consumer = KafkaConsumer(
-                'document-analyze-topic',
-                bootstrap_servers='kafka:9092',
-                group_id='django-consumer-group',
+                os.getenv('KAFKA_TOPIC'),
+                bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS'),
+                group_id=os.getenv('KAFKA_GROUP_ID'),
                 value_deserializer=lambda x: json.loads(x.decode('utf-8')))
             self.mongo_service = MongoService()
             self.postgres_service = PostgresService()
