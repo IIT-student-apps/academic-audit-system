@@ -1,12 +1,16 @@
+import os
+from dotenv import load_dotenv
 from pymongo import MongoClient
 from gridfs import GridFS
 from bson import ObjectId
+
+load_dotenv()
 
 
 class MongoService:
 	def __init__(self):
 		self.client = MongoClient(
-			'mongodb://root:root@mongo:27017/academic_audit_system_db?authSource=admin'
+			os.getenv('MONGO_URI')
 		)
 		self.db = self.client['academic_audit_system_db']
 		self.fs = GridFS(self.db)
